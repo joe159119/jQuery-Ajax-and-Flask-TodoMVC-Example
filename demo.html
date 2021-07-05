@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../static/css/index.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+    <title>React • TodoMVC</title>
+</head>
+
+
+<body>
+    <section class="todoapp">
+        <header class="header">
+            <h1>todos</h1>
+            <form id="todo-form" method="post">
+                <input class="new-todo" name="new-todo" placeholder="What needs to be done?" autofocus required>
+                <input type="submit" hidden>
+            </form>
+        </header>
+    </section>
+    <section class="main">
+        <input id="toggle-all" class="toggle-all" type="checkbox">
+        <ul id="todo-list" class="todo-list">
+        </ul>
+        <div id="footer-template">
+            <span id="todo-count" class="todo-count"></span>
+            <ul id="filters" class="filters">
+                <li>
+                    <a class="selected" href="#/all">All</a>
+                </li>
+                <li>
+                    <a href="#/active">Active</a>
+                </li>
+                <li>
+                    <a href="#/completed">Completed</a>
+                </li>
+            </ul>
+        </div>
+    </section>
+    <footer class="info">
+        <p>Double-click to edit a todo</p>
+        <p>Created by <a href="http://sindresorhus.com">Sindre Sorhus</a></p>
+        <p>Edited by <a href="https://github.com/joe159119"> Wen-De, Jaing</a></p>
+        <p>Part of <a href="http://todomvc.com">TodoMVC</a></p>
+    </footer>
+    <script type="text/javascript">
+        const apiurl = 'http://127.0.0.1:5000/';
+
+        const deleteTodo = function (targetItem) {
+            var btn = targetItem;
+            var todo = btn.parent().parent();
+            var data_id = todo.data("id");
+            $(todo).remove();
+            $.ajax({
+                type: 'DELETE',
+                url: apiurl + 'remove_todo',
+                dataType: 'json',
+                data: {
+                    todo_id: data_id
+                },
+                success: function (data) {
+                    let TodoCount = data.TodoCount
+                    $("span.todo-count").html("<strong>" + TodoCount +
+                        "</strong> items left");
+                    if (TodoCount != 0) {
+                        $(".main").show();
+                    } else {
+                        $(".main").hide();
+                        $("#footer-template").hide();
+                    }
+                }
+            })
+        };
+
+        const updateStatus = function (targetItem) {
+            let checkbox = targetItem;
+            let li = checkbox.parent().parent();
+            let data_id = li.data('id');
+            let ischeck = checkbox.attr("ischeck");
+            if (ischeck == 'false') {
+                checkbox.attr("ischeck", "true");
+                ischeck = "true";
+            } else {
+                checkbox.attr("ischeck", "false");
+                ischeck = "false";
+            }
+
+            $.ajax({
+                type: 'PUT',
+                url: apiurl + 'updateStatus',
+                dataType: 'json',
+                data: {
+                    id: data_id,
+                    ischeck: ischeck
+                },
+                success: function (data) {
+                    if (ischeck == "true") {
+                        li.attr("class", "completed");
+                    } else {
+                        li.attr("class", "activate");
+                    };
+                },
+                error: function () {
+                    console.log("error")
+                }
+            })
+        }
+
+        $(document).ready(function () {
+            $.ajax({
+                type: 'GET',
+                url: apiurl,
+                dataType: 'json',
+                success: function (result) {
+                    let data = result.TodoList;
+                    for (let i = 0; i < data.length; i += 1) {
+                        let todoitem =
+                            `<li class="activate" data-id="${i}">
+                                <div class="view">
+                                    <input class="toggle" type="checkbox" ischeck="${data[i].isCheck}"}>
+                                    <label>${data[i].title}</label>
+                                    <button class="destroy"></button>
+                                </div>
+                                <input class="edit" value="${data[i].title}">
+                            </li>`;
+                        $("#todo-list").append(todoitem);
+                    };
+                    $("input.toggle:checkbox").click(function (e) {
+                        updateStatus($(this));
+                    });
+                    $("button.destroy").click(function (e) {
+                        deleteTodo($(this));
+                    });
+                }
+            })
+        });
+
+        $(document).on('submit', '#todo-form', function (e) {
+            e.preventDefault();
+            let new_todo = $(".new-todo").val().trim();
+
+            if (new_todo == "") {
+                return;
+            }
+
+            $.ajax({
+                type: 'POST',
+                url: apiurl + 'add_todo',
+                dataType: 'json',
+                data: {
+                    todo: new_todo,
+                    ischeck: false
+                },
+                success: function (data) {
+                    let id = data.TodoItem.id;
+                    let isCheck = data.TodoItem.isCheck;
+                    let title = data.TodoItem.title;
+                    let todoitem =
+                        `<li class="activate" data-id="${id}">
+                                <div class="view">
+                                    <input class="toggle" type="checkbox">
+                                    <label>${title}</label>
+                                    <button class="destroy"></button>
+                                </div>
+                                <input class="edit" value="${title}">
+                            </li>`;
+
+                    $("#todo-list").append(todoitem);
+                    $(".new-todo").val('');
+                    $("input.toggle:checkbox").click(function (e) {
+                        updateStatus($(this));
+                    });
+                    $("button.destroy").click(function (e) {
+                        deleteTodo($(this));
+                    });
+                },
+                error: function () {
+                    console.log("error")
+                }
+            })
+        });
+
+        $("ul.filters li a").click(function (e) {
+            e.preventDefault();
+            console.log('hi');
+
+            var filters_a = $("ul.filters li a")
+            filters_a.removeClass("selected");
+
+            var current = $(this);
+            var current_text = current.text();
+
+            current.addClass("selected")
+
+            $("li.activate").show();
+            $("li.completed").show();
+
+            if (current_text == "Completed") {
+                $("li.activate").hide();
+            } else if (current_text == "Active") {
+                $("li.completed").hide();
+            }
+        });
+    </script>
+</body>
+
+</html>
